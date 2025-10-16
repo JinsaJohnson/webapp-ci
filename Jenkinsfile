@@ -12,11 +12,16 @@ pipeline {
                 sh '. venv/bin/activate && pip install -r requirements.txt'
             }
         }
-        stage('Run Tests') {
-            steps {
-                sh '. venv/bin/activate && pytest'
-            }
-        }
+     stage('Run Tests') {
+    steps {
+        sh '''
+        . venv/bin/activate
+        export PYTHONPATH=$PYTHONPATH:$PWD
+        pytest
+        '''
+    }
+}
+
         stage('Archive') {
             steps {
                 archiveArtifacts artifacts: '**/artifact.zip', allowEmptyArchive: true
