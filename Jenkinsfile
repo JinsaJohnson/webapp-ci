@@ -2,38 +2,38 @@ pipeline {
     agent any
 
     stages {
-        stage('Checkout') {
+        stage('Checkout SCM') {
             steps {
-                git branch: 'main', url: 'https://github.com/JinsaJohnson/webapp-ci.git'
+                checkout scm
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                bat 'python -m venv venv'
-                bat 'venv\\Scripts\\activate && pip install -r requirements.txt'
+                sh 'python -m venv venv'       // create virtual environment
+                sh './venv/Scripts/pip install -r requirements.txt'  // install packages
             }
         }
 
         stage('Run Tests') {
             steps {
-                bat 'venv\\Scripts\\activate && pytest tests'
+                sh './venv/Scripts/pytest tests/'   // run pytest
             }
         }
 
         stage('Archive') {
             steps {
-                archiveArtifacts artifacts: '**/*.py', fingerprint: true
+                archiveArtifacts artifacts: '**/artifact.zip', allowEmptyArchive: true
             }
         }
     }
 
     post {
         success {
-            echo 'Build succeeded! ✅'
+            echo 'Build Succeeded! ✅'
         }
         failure {
-            echo 'Build failed! ❌'
+            echo 'Build Failed! ❌'
         }
     }
 }
