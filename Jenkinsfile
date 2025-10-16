@@ -1,39 +1,42 @@
 pipeline {
     agent any
-
     stages {
         stage('Checkout SCM') {
             steps {
-                checkout scm
+                // Pull the latest code from GitHub
+                git branch: 'main', url: 'https://github.com/JinsaJohnson/webapp-ci.git'
             }
         }
-
         stage('Install Dependencies') {
             steps {
-                sh 'python -m venv venv'       // create virtual environment
-                sh './venv/Scripts/pip install -r requirements.txt'  // install packages
+                // Use virtual environment pip to install requirements
+                bat 'venv\\Scripts\\pip install --upgrade pip'
+                bat 'venv\\Scripts\\pip install -r requirements.txt'
             }
         }
-
         stage('Run Tests') {
             steps {
-                sh './venv/Scripts/pytest tests/'   // run pytest
+                // Run pytest using virtual environment
+                bat 'venv\\Scripts\\pytest --junitxml=test-results.xml'
+            }
+            post {
+                always {
+                    // Archive test results
+                    junit 'test-results.xml'
+                }
             }
         }
-
-        stage('Archive') {
+        stage('Archive Artifacts') {
             steps {
-                archiveArtifacts artifacts: '**/artifact.zip', allowEmptyArchive: true
+                // Archive your Flask app files (you can include other files as needed)
+                bat 'powershell -Command "Compress-Archive -Path app.py, tests, requirements.txt -DestinationPath artifact.zip"'
+                archiveArtifacts artifacts: 'artifact.zip', allowEmptyArchive: false
             }
         }
-    }
-
-    post {
-        success {
-            echo 'Build Succeeded! ✅'
-        }
-        failure {
-            echo 'Build Failed! ❌'
+        stage('Post Actions') {
+            steps {
+                echo '✅ Build finished!'
+            }
         }
     }
 }
