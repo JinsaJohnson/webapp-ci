@@ -22,11 +22,21 @@ pipeline {
     }
 }
 
-        stage('Archive') {
+stage('Build Artifact') {
             steps {
-                archiveArtifacts artifacts: '**/artifact.zip', allowEmptyArchive: true
+                sh '''
+                echo "Zipping project files into artifact.zip..."
+                zip -r artifact.zip . -x "venv/*" "*.git*" "__pycache__/*"
+                '''
             }
         }
+
+        stage('Archive') {
+            steps {
+                archiveArtifacts artifacts: 'artifact.zip', allowEmptyArchive: false
+            }
+        }
+
         stage('Post Actions') {
             steps {
                 echo 'Build finished!'
