@@ -10,14 +10,11 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                // create virtual env, upgrade pip, install requirements
                 sh '''
                 python3 -m venv venv
                 . venv/bin/activate
-                python -m pip install --upgrade pip setuptools wheel
-                if [ -f requirements.txt ]; then
-                  pip install -r requirements.txt
-                fi
+                pip install --upgrade pip
+                pip install -r requirements.txt
                 '''
             }
         }
@@ -26,7 +23,7 @@ pipeline {
             steps {
                 sh '''
                 . venv/bin/activate
-                export PYTHONPATH=$PYTHONPATH:$PWD
+                export PYTHONPATH=$PYTHONPATH:$(pwd)/src
                 pytest --maxfail=1 -q
                 '''
             }
@@ -34,30 +31,16 @@ pipeline {
 
         stage('Build') {
             steps {
-                // Build wheel/sdist if possible. Otherwise create a source snapshot in artifacts/.
                 sh '''
                 . venv/bin/activate
-                mkdir -p artifacts
-
-                if [ -f pyproject.toml ]; then
-                  python -m pip install --upgrade build
-                  python -m build --no-isolation
-                  cp dist/* artifacts/ || true
-                elif [ -f setup.py ]; then
-                  python setup.py sdist bdist_wheel
-                  cp dist/* artifacts/ || true
+                mkdir -p build
+                if [ -f setup.py ]; then
+                    pip install setuptools wheel
+                    python setup.py sdist bdist_wheel
+                    cp dist/* build/ || true
                 else
-                  echo "No pyproject.toml or setup.py - creating a source snapshot"
-                  # include only the files you need in the package (adjust as necessary)
-                  tar -czf artifacts/source.tar.gz --exclude='venv' --exclude='.git' --exclude='__pycache__' .
+                    echo "setup.py not found, skipping Python package build"
                 fi
-
-                # include requirements.txt (optional)
-                if [ -f requirements.txt ]; then
-                  cp requirements.txt artifacts/ || true
-                fi
-
-                ls -la artifacts
                 '''
             }
         }
@@ -65,32 +48,33 @@ pipeline {
         stage('Package Artifact') {
             steps {
                 sh '''
-                # create a clean artifact zip that contains built outputs only
-                rm -f artifact.zip
-                zip -r artifact.zip artifacts -x "artifacts/venv/*" "artifacts/*.pyc"
+                echo "Zipping project files into build/artifact.zip..."
+                zip -r build/artifact.zip . -x "venv/*" "*.git*" "__pycache__/*" "*.pytest_cache/*"
                 '''
             }
         }
 
         stage('Archive') {
             steps {
-                // Archive both the zip and any files in dist for convenience
-                archiveArtifacts artifacts: 'artifact.zip, artifacts/**, dist/**', allowEmptyArchive: false
+                archiveArtifacts artifacts: 'build/artifact.zip', allowEmptyArchive: false
             }
         }
 
         stage('Post Actions') {
             steps {
-                echo 'Build finished!'
+                echo '✅ Build finished successfully!'
             }
         }
     }
 
     post {
         always {
-            // print workspace and cleanup venv to keep agent tidy
-            sh 'echo "Workspace contents:" && ls -la'
-            sh 'rm -rf venv || true'
+            sh '''
+            echo "Workspace contents:"
+            ls -la
+            rm -rf venv
+            '''
+            cleanWs()
         }
     }
 }
